@@ -1,8 +1,9 @@
+# Tệp: backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from db import db
-from routes import product, user, order, recommend
+from routes import product, user, order, recommend, cart
 from security import get_password_hash
 
 app = FastAPI(title="Studyholic API")
@@ -19,10 +20,13 @@ app.include_router(product.router, prefix="/api/products", tags=["Products"])
 app.include_router(user.router, prefix="/api/users", tags=["Users"])
 app.include_router(order.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(recommend.router, prefix="/api/ai-recommend", tags=["AI Recommendation"])
+app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 
 @app.on_event("startup")
 async def create_super_admin():
-    super_admin = await db.users.find_one({"username": "superadmin"})
+    # Sửa lại điều kiện tìm kiếm khớp với tên đăng nhập mới
+    super_admin = await db.users.find_one({"username": "adminSSS"})
+    
     if not super_admin:
         await db.users.insert_one({
             "username": "adminSSS",

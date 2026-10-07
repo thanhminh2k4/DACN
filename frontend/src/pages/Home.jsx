@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import '../styles/Home.css'; 
+import '../styles/Cart.css';
 
 export default function Home() {
     const navigate = useNavigate();
@@ -10,31 +11,68 @@ export default function Home() {
     
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [cartCount, setCartCount] = useState(0);
 
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await api.get('/products/');
-                setProducts(response.data.products);
-            } catch (error) {
-                console.error("Lỗi khi tải sản phẩm:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchProducts();
-    }, []);
+        if (role === 'Customer') {
+            fetchCartCount();
+        }
+    }, [role]);
 
-    // Cập nhật hàm Đăng xuất để gọi API đổi trạng thái
+    const fetchProducts = async () => {
+        try {
+            const response = await api.get('/products/');
+            setProducts(response.data.products);
+        } catch (error) {
+            console.error("Lỗi khi tải sản phẩm:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchCartCount = async () => {
+        try {
+            const res = await api.get('/cart/');
+            const count = res.data.items.reduce((total, item) => total + item.quantity, 0);
+            setCartCount(count);
+        } catch (error) {
+            console.error("Lỗi lấy giỏ hàng", error);
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await api.post('/users/logout');
         } catch (e) {
-            console.error("Lỗi khi đăng xuất:", e);
+            console.error(e);
         }
         localStorage.removeItem('access_token');
         localStorage.removeItem('role');
         navigate('/login');
+    };
+
+    const handleAddToCart = async (product) => {
+        if (!token) {
+            alert("Vui lòng đăng nhập để mua hàng!");
+            navigate('/login');
+            return;
+        }
+        if (role !== 'Customer') {
+            alert("Chỉ tài khoản Khách hàng mới có thể mua hàng!");
+            return;
+        }
+
+        try {
+            await api.post('/cart/add', {
+                product_id: product._id,
+                quantity: 1
+            });
+            alert(`Đã thêm "${product.name}" vào giỏ!`);
+            fetchCartCount(); 
+        } catch (error) {
+            alert(error.response?.data?.detail || "Lỗi thêm giỏ hàng");
+        }
     };
 
     return (
@@ -42,27 +80,23 @@ export default function Home() {
             <div className="home-header">
                 <h2>Trang chủ - Danh sách đồ dùng học tập</h2>
                 {token ? (
-                    <div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {role === 'Customer' && (
+                            <button className="cart-btn-header" onClick={() => navigate('/cart')}>
+                                🛒 Giỏ hàng <span className="badge">{cartCount}</span>
+                            </button>
+                        )}
+
                         <span className="role-info">Vai trò: <strong>{role}</strong></span>
                         
-                        {/* Bổ sung nút Quản lý Tài khoản (Chỉ dành cho Admin) */}
                         {role === 'Admin' && (
-                            <button 
-                                className="btn-auth" 
-                                style={{ marginRight: '10px', backgroundColor: '#0275d8', color: 'white' }} 
-                                onClick={() => navigate('/manage-users')}
-                            >
+                            <button className="btn-auth" style={{ marginRight: '10px', backgroundColor: '#0275d8', color: 'white' }} onClick={() => navigate('/manage-users')}>
                                 Quản lý Tài khoản
                             </button>
                         )}
 
-                        {/* Chỉ hiển thị nút Quản lý Sản phẩm nếu là Admin hoặc Staff */}
                         {(role === 'Admin' || role === 'Staff') && (
-                            <button 
-                                className="btn-auth" 
-                                style={{ marginRight: '10px', backgroundColor: '#5cb85c', color: 'white' }} 
-                                onClick={() => navigate('/manage-products')}
-                            >
+                            <button className="btn-auth" style={{ marginRight: '10px', backgroundColor: '#5cb85c', color: 'white' }} onClick={() => navigate('/manage-products')}>
                                 Quản lý Sản phẩm
                             </button>
                         )}
@@ -81,17 +115,40 @@ export default function Home() {
             {loading ? (
                 <p>Đang tải danh sách sản phẩm...</p>
             ) : products.length === 0 ? (
-                <p>Chưa có sản phẩm nào trong cửa hàng. (Hãy dùng tài khoản Admin để thêm sản phẩm)</p>
+                <p>Chưa có sản phẩm nào trong cửa hàng.</p>
             ) : (
                 <div className="product-grid">
                     {products.map((product) => (
                         <div key={product._id} className="product-card">
+                            
+                            <div className="product-image-container">
+                                {product.image_url ? (
+                                    <img src={product.image_url} alt={product.name} />
+                                ) : (
+                                    <span className="no-image">Chưa có ảnh</span>
+                                )}
+                            </div>
+
                             <h3 className="product-title">{product.name}</h3>
                             <p className="product-category">Danh mục: {product.category}</p>
                             <p className="product-price">Giá: {product.price.toLocaleString()} VNĐ</p>
-                            <p className="product-stock">Tồn kho: {product.stock}</p>
                             
-                            <button className="btn-add-cart">Thêm vào giỏ hàng</button>
+                            {/* Cập nhật khu vực Nút bấm: Chia 2 nút */}
+                            <div style={{ display: 'flex', gap: '5px', marginTop: 'auto' }}>
+                                <button 
+                                    style={{ flex: 1, padding: '10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }} 
+                                    onClick={() => navigate(`/product/${product._id}`)}
+                                >
+                                    Chi tiết
+                                </button>
+                                <button 
+                                    style={{ flex: 1, padding: '10px', backgroundColor: '#0275d8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    onClick={() => handleAddToCart(product)}
+                                >
+                                    Thêm giỏ
+                                </button>
+                            </div>
+
                         </div>
                     ))}
                 </div>

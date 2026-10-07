@@ -1,0 +1,119 @@
+/* Tệp: frontend/src/styles/ProductDetail.css */
+.detail-container {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    font-family: Arial, sans-serif;
+}
+
+/* Bố cục 6 phần trái, 4 phần phải */
+.detail-grid {
+    display: flex;
+    gap: 30px;
+}
+
+.detail-left {
+    flex: 6; /* Chiếm 6 phần */
+}
+
+.detail-right {
+    flex: 4; /* Chiếm 4 phần */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.detail-image {
+    width: 100%;
+    max-width: 350px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.detail-title {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.detail-id {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.detail-info p {
+    margin: 10px 0;
+    font-size: 15px;
+}
+
+/* Khu vực giảm giá */
+.discount-box {
+    background-color: #fdf2f2;
+    border: 1px dashed #d9534f;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 20px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.discount-input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-right: 5px;
+}
+
+.btn-apply {
+    padding: 8px 12px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.price-box {
+    font-size: 22px;
+    color: #d9534f;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.old-price {
+    text-decoration: line-through;
+    color: #999;
+    font-size: 16px;
+    margin-right: 10px;
+}
+
+/* Hàng nút cuối cùng */
+.action-row {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.btn-add, .btn-buy {
+    flex: 1;
+    padding: 15px;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-add {
+    background-color: #f0ad4e; /* Màu vàng cam */
+    color: white;
+}
+
+.btn-buy {
+    background-color: #d9534f; /* Màu đỏ */
+    color: white;
+}
