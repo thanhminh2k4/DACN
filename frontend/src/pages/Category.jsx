@@ -17,12 +17,16 @@ export default function Category() {
 
     // State cho bộ lọc
     const [selectedCategory, setSelectedCategory] = useState('Tất cả');
-    const [filterType, setFilterType] = useState('all'); // all, price_asc, price_desc, sale, bestseller
+    const [filterType, setFilterType] = useState('all'); 
+
+    // State quản lý Modal mua hàng nhanh
+    const [quickAddProduct, setQuickAddProduct] = useState(null);
+    const [quickAddQuantity, setQuickAddQuantity] = useState(1);
+    const [modalMessage, setModalMessage] = useState({ type: '', text: '' }); 
 
     const searchParams = new URLSearchParams(location.search);
     const searchQuery = searchParams.get('search') || '';
 
-    // Khi có từ khóa tìm kiếm trên Navbar, reset bộ lọc về mặc định
     useEffect(() => {
         if (searchQuery) {
             setSelectedCategory('Tất cả');
@@ -46,38 +50,54 @@ export default function Category() {
         fetchProducts();
     }, []);
 
-    const handleAddToCart = async (product) => {
+    // 1. Hàm mở Modal chọn số lượng 
+    const handleOpenQuickAdd = (product) => {
         const token = sessionStorage.getItem('access_token');
         const role = sessionStorage.getItem('role');
-        if (!token) return navigate('/login');
-        if (role !== 'Customer') return alert("Chỉ Khách hàng mới có thể mua!");
         
+        if (!token) return navigate('/login');
+        if (role !== 'Customer') return; 
+        
+        setModalMessage({ type: '', text: '' }); 
+        setQuickAddProduct(product);
+        setQuickAddQuantity(1); 
+    };
+
+    // 2. Hàm gọi API xác nhận thêm vào giỏ hàng
+    const confirmAddToCart = async () => {
+        setModalMessage({ type: '', text: '' });
         try {
-            await api.post('/cart/add', { product_id: product._id, quantity: 1 });
-            alert(`Đã thêm "${product.name}" vào giỏ!`);
+            await api.post('/cart/add', { product_id: quickAddProduct._id, quantity: quickAddQuantity });
+            
+            setModalMessage({ type: 'success', text: '✓ Thêm vào giỏ thành công!' });
+            setTimeout(() => setQuickAddProduct(null), 1000); 
+            
         } catch (error) {
-            alert("Lỗi thêm giỏ hàng");
+            if (error.response?.status === 401) {
+                setModalMessage({ type: 'error', text: 'Phiên đăng nhập hết hạn. Đang chuyển hướng...' });
+                sessionStorage.clear();
+                setTimeout(() => {
+                    setQuickAddProduct(null);
+                    navigate('/login');
+                }, 1500);
+            } else {
+                setModalMessage({ type: 'error', text: 'Có lỗi xảy ra, vui lòng thử lại!' });
+            }
         }
     };
 
-    // ==========================================
-    // LOGIC LỌC VÀ SẮP XẾP SẢN PHẨM
-    // ==========================================
     let filteredProducts = [...products];
 
-    // 1. Lọc theo tìm kiếm
     if (searchQuery) {
         filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
     }
 
-    // 2. Lọc theo Danh mục (Cột trái)
     if (selectedCategory !== 'Tất cả') {
         filteredProducts = filteredProducts.filter(p => 
             p.category && p.category.toLowerCase().includes(selectedCategory.toLowerCase())
         );
     }
 
-    // 3. Lọc & Sắp xếp theo công cụ (Cột phải)
     if (filterType === 'sale') {
         filteredProducts = filteredProducts.filter(p => p.discount_percent > 0);
     } else if (filterType === 'bestseller') {
@@ -88,13 +108,11 @@ export default function Category() {
         filteredProducts.sort((a, b) => b.price - a.price);
     }
 
-    // Phân trang
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentProducts = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-    // Style cho nút Filter
     const filterBtnStyle = (isActive) => ({
         padding: '8px 15px',
         border: '1px solid #d9534f',
@@ -109,10 +127,9 @@ export default function Category() {
     return (
         <div className="home-container" style={{ backgroundColor: '#f5f5f5', minHeight: '100vh', paddingBottom: '40px' }}>
             
-            {/* LAYOUT 2 CỘT */}
             <div style={{ display: 'flex', gap: '20px', maxWidth: '1200px', margin: '20px auto', padding: '0 20px', alignItems: 'flex-start' }}>
                 
-                {/* ================= CỘT TRÁI: DANH MỤC ================= */}
+                {/* CỘT TRÁI */}
                 <div style={{ flex: '0 0 250px', backgroundColor: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', position: 'sticky', top: '90px' }}>
                     <h3 style={{ borderBottom: '2px solid #d9534f', paddingBottom: '10px', marginBottom: '15px', textTransform: 'uppercase', fontSize: '16px', color: '#333' }}>
                         ☰ Danh Mục Sản Phẩm
@@ -139,22 +156,15 @@ export default function Category() {
                     </ul>
                 </div>
 
-                {/* ================= CỘT PHẢI: BỘ LỌC VÀ GRID ================= */}
+                {/* CỘT PHẢI */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                     
-                    {/* THANH CÔNG CỤ FILTER */}
                     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', backgroundColor: '#fff', padding: '12px 20px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: '20px', gap: '10px' }}>
                         <span style={{ fontWeight: 'bold', color: '#555', marginRight: '5px' }}>Sắp xếp theo:</span>
                         
-                        <button style={filterBtnStyle(filterType === 'all')} onClick={() => { setFilterType('all'); setCurrentPage(1); }}>
-                            Tất cả
-                        </button>
-                        <button style={filterBtnStyle(filterType === 'sale')} onClick={() => { setFilterType('sale'); setCurrentPage(1); }}>
-                            Giảm giá
-                        </button>
-                        <button style={filterBtnStyle(filterType === 'bestseller')} onClick={() => { setFilterType('bestseller'); setCurrentPage(1); }}>
-                            Bán chạy
-                        </button>
+                        <button style={filterBtnStyle(filterType === 'all')} onClick={() => { setFilterType('all'); setCurrentPage(1); }}>Tất cả</button>
+                        <button style={filterBtnStyle(filterType === 'sale')} onClick={() => { setFilterType('sale'); setCurrentPage(1); }}>Giảm giá</button>
+                        <button style={filterBtnStyle(filterType === 'bestseller')} onClick={() => { setFilterType('bestseller'); setCurrentPage(1); }}>Bán chạy</button>
                         
                         <select 
                             style={{ padding: '8px 10px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none', cursor: 'pointer', fontWeight: 'bold', color: '#333' }}
@@ -167,12 +177,10 @@ export default function Category() {
                         </select>
                     </div>
                     
-                    {/* TIÊU ĐỀ KẾT QUẢ */}
                     <h3 className="section-title" style={{ marginTop: '0' }}>
                         {searchQuery ? ` Kết quả tìm kiếm cho: "${searchQuery}"` : ` ${selectedCategory.toUpperCase()}`}
                     </h3>
 
-                    {/* DANH SÁCH SẢN PHẨM */}
                     {loading ? (
                         <p style={{textAlign: 'center', padding: '50px'}}>Đang tải dữ liệu...</p>
                     ) : currentProducts.length === 0 ? (
@@ -183,27 +191,42 @@ export default function Category() {
                     ) : (
                         <>
                             <div className="product-grid" style={{ gap: '15px' }}>
-                                {currentProducts.map(product => (
-                                    <div key={product._id} className="product-card" style={{ padding: '10px' }}>
-                                        {product.discount_percent > 0 && <div className="badge-discount">-{product.discount_percent}%</div>}
-                                        <div className="product-image-container" onClick={() => navigate(`/product/${product._id}`)} style={{cursor: 'pointer', height: '160px'}}>
-                                            {product.image_url ? <img src={product.image_url} alt={product.name} /> : <span style={{color: '#ccc'}}>Chưa có ảnh</span>}
+                                {currentProducts.map(product => {
+                                    // SỬA CÔNG THỨC GIẢM GIÁ 
+                                    const originalPrice = product.price;
+                                    const discountedPrice = product.discount_percent > 0 
+                                        ? originalPrice - (originalPrice * product.discount_percent / 100)
+                                        : originalPrice;
+
+                                    return (
+                                        <div key={product._id} className="product-card" style={{ padding: '10px' }}>
+                                            {product.discount_percent > 0 && <div className="badge-discount">-{product.discount_percent}%</div>}
+                                            <div className="product-image-container" onClick={() => navigate(`/product/${product._id}`)} style={{cursor: 'pointer', height: '160px'}}>
+                                                {product.image_url ? <img src={product.image_url} alt={product.name} /> : <span style={{color: '#ccc'}}>Chưa có ảnh</span>}
+                                            </div>
+                                            <h3 className="product-title" style={{fontSize: '14px', height: '38px'}} title={product.name}>{product.name}</h3>
+                                            
+                                            <p className="product-price" style={{fontSize: '16px'}}>
+                                                {/* Hiển thị giá sau giảm làm giá chính, giá gốc bị gạch ngang */}
+                                                {discountedPrice.toLocaleString()} đ
+                                                {product.discount_percent > 0 && (
+                                                    <span style={{textDecoration: 'line-through', color: '#999', fontSize: '12px', display: 'block'}}>
+                                                        {originalPrice.toLocaleString()} đ
+                                                    </span>
+                                                )}
+                                            </p>
+                                            
+                                            <div className="product-sold" style={{marginBottom: '5px'}}>Đã bán: {product.sold || 0}</div>
+                                            <div style={{ display: 'flex', gap: '5px', marginTop: 'auto' }}>
+                                                <button style={{ flex: 1, padding: '6px', fontSize: '13px', background: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => navigate(`/product/${product._id}`)}>Xem</button>
+                                                {/* Gọi Modal thay vì ném thẳng vào giỏ */}
+                                                <button style={{ flex: 1, padding: '6px', fontSize: '13px', background: '#d9534f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleOpenQuickAdd(product)}>Mua</button>
+                                            </div>
                                         </div>
-                                        <h3 className="product-title" style={{fontSize: '14px', height: '38px'}} title={product.name}>{product.name}</h3>
-                                        <p className="product-price" style={{fontSize: '16px'}}>
-                                            {product.price.toLocaleString()} đ
-                                            {product.discount_percent > 0 && <span style={{textDecoration: 'line-through', color: '#999', fontSize: '12px', display: 'block'}}>{(product.price / (1 - product.discount_percent/100)).toLocaleString()} đ</span>}
-                                        </p>
-                                        <div className="product-sold" style={{marginBottom: '5px'}}>Đã bán: {product.sold || 0}</div>
-                                        <div style={{ display: 'flex', gap: '5px', marginTop: 'auto' }}>
-                                            <button style={{ flex: 1, padding: '6px', fontSize: '13px', background: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => navigate(`/product/${product._id}`)}>Xem</button>
-                                            <button style={{ flex: 1, padding: '6px', fontSize: '13px', background: '#d9534f', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => handleAddToCart(product)}>Mua</button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             
-                            {/* PHÂN TRANG */}
                             {totalPages > 1 && (
                                 <div className="pagination" style={{ marginTop: '30px' }}>
                                     {[...Array(totalPages)].map((_, i) => (
@@ -227,6 +250,66 @@ export default function Category() {
                 <div>Trường Đại học Tài nguyên và Môi trường TP.HCM. Cấp tại: Khoa Công Nghệ Thông Tin.</div>
                 <div>Địa chỉ: 236B Lê Văn Sỹ, Phường 1, Tân Bình, Thành phố Hồ Chí Minh. Điện thoại: 0396971157.</div>
             </footer>
+
+            {/* MODAL CHỌN SỐ LƯỢNG MUA NHANH TÍCH HỢP */}
+            {quickAddProduct && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{
+                        background: '#fff', padding: '25px', borderRadius: '12px', 
+                        width: '350px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                    }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#333', fontSize: '20px' }}>Chọn số lượng</h3>
+                        
+                        {modalMessage.text && (
+                            <div style={{
+                                padding: '10px', marginBottom: '15px', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold',
+                                backgroundColor: modalMessage.type === 'error' ? '#f8d7da' : '#d4edda',
+                                color: modalMessage.type === 'error' ? '#721c24' : '#155724'
+                            }}>
+                                {modalMessage.text}
+                            </div>
+                        )}
+
+                        <p style={{ fontWeight: 'bold', marginBottom: '25px', color: '#0275d8', lineHeight: '1.4' }}>
+                            {quickAddProduct.name}
+                        </p>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '25px', marginBottom: '30px' }}>
+                            <button 
+                                onClick={() => setQuickAddQuantity(prev => Math.max(1, prev - 1))}
+                                style={{ padding: '8px 20px', fontSize: '20px', cursor: 'pointer', border: '1px solid #ccc', borderRadius: '8px', background: '#f8f9fa', color: '#333' }}
+                            >-</button>
+                            <span style={{ fontSize: '22px', fontWeight: 'bold', minWidth: '30px' }}>{quickAddQuantity}</span>
+                            <button 
+                                onClick={() => setQuickAddQuantity(prev => prev + 1)}
+                                style={{ padding: '8px 20px', fontSize: '20px', cursor: 'pointer', border: '1px solid #ccc', borderRadius: '8px', background: '#f8f9fa', color: '#333' }}
+                            >+</button>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '15px' }}>
+                            <button 
+                                onClick={() => setQuickAddProduct(null)}
+                                style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '6px', background: '#e9ecef', color: '#333', fontWeight: 'bold', cursor: 'pointer' }}
+                            >Hủy bỏ</button>
+                            <button 
+                                onClick={confirmAddToCart}
+                                disabled={modalMessage.type === 'success' || modalMessage.text.includes('hết hạn')}
+                                style={{ 
+                                    flex: 1, padding: '12px', border: 'none', borderRadius: '6px', 
+                                    background: '#d9534f', color: '#fff', fontWeight: 'bold', cursor: 'pointer',
+                                    opacity: (modalMessage.type === 'success' || modalMessage.text.includes('hết hạn')) ? 0.6 : 1 
+                                }}
+                            >
+                                Xác nhận thêm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

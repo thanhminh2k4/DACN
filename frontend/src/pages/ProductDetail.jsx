@@ -5,17 +5,17 @@ import api from '../services/api';
 import '../styles/ProductDetail.css';
 
 export default function ProductDetail() {
-    const { id } = useParams(); // Lấy ID sản phẩm từ URL
+    const { id } = useParams(); 
     const navigate = useNavigate();
     const token = sessionStorage.getItem('access_token');
-    const role = sessionStorage.getItem('role');
     
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     
     // Xử lý mã giảm giá
     const [promoCode, setPromoCode] = useState('');
-    const [discountValue, setDiscountValue] = useState(0);
+    const [discountValue, setDiscountValue] = useState(0); 
+    const [appliedCode, setAppliedCode] = useState(''); // Lưu mã nếu áp dụng thành công
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -32,14 +32,35 @@ export default function ProductDetail() {
         fetchDetail();
     }, [id, navigate]);
 
-    const handleApplyCode = () => {
-        // Giả lập logic mã giảm giá
-        if (promoCode.toUpperCase() === 'SALE10') {
-            setDiscountValue(10000); // Giảm cứng 10k
-            alert("Áp dụng mã giảm 10,000đ thành công!");
-        } else {
-            alert("Mã không hợp lệ!");
+    // GỌI API ĐỂ KIỂM TRA MÃ GIẢM GIÁ (Đã sửa /order thành /orders)
+    const handleApplyCode = async () => {
+        if (!promoCode.trim()) {
+            alert("Vui lòng nhập mã giảm giá!");
+            return;
+        }
+
+        try {
+            // Đã đổi thành /orders/ 
+            const res = await api.get(`/orders/validate-discount/${promoCode.trim()}`);
+            
+            if (res.data.valid) {
+                const percent = res.data.discount_percent;
+                // Tính số tiền được giảm dựa trên % trả về
+                const calculatedDiscount = product.price * (percent / 100);
+                
+                setDiscountValue(calculatedDiscount);
+                setAppliedCode(promoCode.trim().toUpperCase());
+                alert(`Áp dụng mã thành công! Bạn được giảm ${percent}%`);
+            }
+        } catch (error) {
+            // Nếu vẫn lỗi 404 thì nguyên nhân là do chưa Restart Backend
+            if (error.response?.status === 404) {
+                 alert("Lỗi 404: Không tìm thấy API trên Server. Vui lòng tắt và bật lại (Restart) Backend FastAPI của bạn!");
+                 return;
+            }
+            alert("Mã không hợp lệ hoặc đã hết hạn!");
             setDiscountValue(0);
+            setAppliedCode('');
         }
     };
 
@@ -56,7 +77,14 @@ export default function ProductDetail() {
     const handleCheckout = () => {
          if (!token) return navigate('/login');
     
-        navigate('/checkout', { state: { direct: true, product: product } });
+        // Gửi cả sản phẩm và mã giảm giá sang trang Checkout (nếu có)
+        navigate('/checkout', { 
+            state: { 
+                direct: true, 
+                product: product,
+                discount_code: appliedCode // Đính kèm mã để trang checkout xử lý
+            } 
+        });
     };
     
     if (loading) return <div style={{padding: '50px'}}>Đang tải chi tiết...</div>;
@@ -72,10 +100,10 @@ export default function ProductDetail() {
                 {/* TRÁI: 6 Phần - Chi tiết */}
                 <div className="detail-left">
                     <h1 className="detail-title">{product.name}</h1>
-                    <div className="detail-id">Mã SP: {product.custom_id || 'Đang cập nhật'}</div>
+                    <div className="detail-id">Mã SP: <strong>{product.product_code || '---'}</strong></div>
                     
                     <div className="detail-info">
-                        <p><strong>Nhà sản xuất:</strong> {product.manufacturer || 'Đang cập nhật'}</p>
+                        <p><strong>Nhà cung cấp:</strong> {product.supplier || 'Đang cập nhật'}</p>
                         <p><strong>Ngày lên kệ:</strong> {product.release_date || 'Đang cập nhật'}</p>
                         <p><strong>Bảo hành:</strong> {product.warranty || 'Không bảo hành'}</p>
                         <p><strong>Mô tả:</strong> {product.description || 'Chưa có mô tả'}</p>
@@ -83,16 +111,17 @@ export default function ProductDetail() {
 
                     <div className="discount-box">
                         <div>Giảm giá hiện hành: <strong>{product.discount_percent || 0}%</strong></div>
-                        <div>
+                        <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
                             <input 
                                 type="text" 
                                 className="discount-input" 
-                                placeholder="Nhập mã (VD: SALE10)" 
+                                placeholder="Nhập mã (VD: SALE20)" 
                                 value={promoCode}
                                 onChange={(e) => setPromoCode(e.target.value)}
                             />
                             <button className="btn-apply" onClick={handleApplyCode}>Áp dụng</button>
                         </div>
+                        {appliedCode && <div style={{color: 'green', fontSize: '13px', marginTop: '5px'}}>Mã đã dùng: {appliedCode}</div>}
                     </div>
 
                     <div className="price-box">
@@ -106,13 +135,13 @@ export default function ProductDetail() {
                     </div>
                 </div>
 
-                {/* PHẢI: 4 Phần - Hình ảnh */}
+                {/* PHẢI: Hình ảnh */}
                 <div className="detail-right">
                     {product.image_url ? (
                         <img src={product.image_url} alt={product.name} className="detail-image" />
                     ) : (
-                        <div style={{width: '100%', height: '300px', backgroundColor: '#eee', display: 'flex', alignItems:'center', justifyContent: 'center'}}>
-                            Không có ảnh
+                        <div style={{width: '100%', height: '100%', minHeight: '300px', backgroundColor: '#eee', display: 'flex', alignItems:'center', justifyContent: 'center', borderRadius: '8px'}}>
+                            Không có ảnh minh họa
                         </div>
                     )}
                 </div>

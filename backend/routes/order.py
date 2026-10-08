@@ -7,28 +7,25 @@ from bson.objectid import ObjectId
 from datetime import datetime
 import random
 import string
+from utils.discount_codes import get_discount_percent 
 
 router = APIRouter()
 order_collection = db.orders
 product_collection = db.products
-cart_collection = db.carts # Bổ sung collection giỏ hàng
+cart_collection = db.carts
 
-# Hàm sinh mã đơn hàng (VD: DH1A2B)
 def generate_order_id():
     suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"DH{suffix}"
 
-# 1. TẠO ĐƠN HÀNG (Từ Giỏ hàng hoặc truyển trực tiếp danh sách items)
+# 1. TẠO ĐƠN HÀNG 
 @router.post("/create")
 async def create_order(order: OrderCreate, current_user: dict = Depends(get_current_user)):
-    # Xác định danh sách sản phẩm cần thanh toán
     items_to_process = []
     
     if order.items: 
-        # Nếu gửi danh sách items lên (Mua nhiều sản phẩm trực tiếp)
         items_to_process = [{"product_id": item.product_id, "quantity": item.quantity} for item in order.items]
     else:
-        # Nếu không gửi items, hệ thống tự động lấy từ Giỏ hàng của user
         cart = await cart_collection.find_one({"username": current_user["username"]})
         if cart and cart.get("items"):
             items_to_process = cart["items"]
@@ -42,15 +39,24 @@ async def create_order(order: OrderCreate, current_user: dict = Depends(get_curr
         try:
             product = await product_collection.find_one({"_id": ObjectId(item["product_id"])})
         except Exception:
-            raise HTTPException(status_code=400, detail=f"Mã sản phẩm {item['product_id']} không hợp lệ")
+            # TÍNH NĂNG MỚI: Tự động gỡ ID rác bị lỗi ra khỏi Database Giỏ hàng
+            await cart_collection.update_one(
+                {"username": current_user["username"]}, 
+                {"$pull": {"items": {"product_id": item["product_id"]}}}
+            )
+            continue 
 
         if not product:
-            raise HTTPException(status_code=404, detail=f"Sản phẩm {item['product_id']} không tồn tại")
+            # TÍNH NĂNG MỚI: Tự động gỡ sản phẩm đã bị xóa ra khỏi Database Giỏ hàng
+            await cart_collection.update_one(
+                {"username": current_user["username"]}, 
+                {"$pull": {"items": {"product_id": item["product_id"]}}}
+            )
+            continue 
         
         if product.get("stock", 0) < item["quantity"]:
             raise HTTPException(status_code=400, detail=f"Sản phẩm '{product['name']}' không đủ số lượng trong kho")
 
-        # Trừ tồn kho
         await product_collection.update_one(
             {"_id": ObjectId(item["product_id"])},
             {"$inc": {"stock": -item["quantity"]}}
@@ -68,11 +74,32 @@ async def create_order(order: OrderCreate, current_user: dict = Depends(get_curr
             "item_total": item_total
         })
 
+    if not order_items_detail:
+        if not order.items:
+            await cart_collection.update_one({"username": current_user["username"]}, {"$set": {"items": []}})
+        raise HTTPException(status_code=400, detail="Các sản phẩm trong đơn hàng đã ngừng bán hoặc không tồn tại.")
+
+    # XỬ LÝ MÃ GIẢM GIÁ
+    discount_code = getattr(order, 'discount_code', None)
+    discount_percent = 0
+    if discount_code:
+        discount_percent = get_discount_percent(discount_code)
+        if discount_percent == 0:
+            raise HTTPException(status_code=400, detail="Mã giảm giá không hợp lệ hoặc không tồn tại!")
+
+    final_amount = total_amount
+    if discount_percent > 0:
+        discount_amount = total_amount * (discount_percent / 100)
+        final_amount = total_amount - discount_amount
+
     new_order = {
         "order_id": generate_order_id(),
         "username": current_user["username"],
         "items": order_items_detail,
-        "total_amount": total_amount,
+        "total_amount": final_amount, 
+        "original_amount": total_amount, 
+        "discount_code": discount_code,
+        "discount_percent": discount_percent,
         "shipping_address": order.shipping_address,
         "phone": order.phone,
         "payment_method": order.payment_method,
@@ -82,7 +109,6 @@ async def create_order(order: OrderCreate, current_user: dict = Depends(get_curr
 
     result = await order_collection.insert_one(new_order)
     
-    # Nếu thanh toán từ giỏ hàng, hãy xóa trống giỏ hàng sau khi đặt thành công
     if not order.items:
         await cart_collection.update_one({"username": current_user["username"]}, {"$set": {"items": []}})
 
@@ -90,11 +116,11 @@ async def create_order(order: OrderCreate, current_user: dict = Depends(get_curr
         return {
             "message": "Đặt hàng thành công", 
             "order_id": new_order["order_id"],
-            "total_amount": total_amount
+            "total_amount": final_amount
         }
     raise HTTPException(status_code=500, detail="Không thể tạo đơn hàng")
 
-# 2. MUA NGAY 1 SẢN PHẨM (Bấm nút Mua ngay trên trang chi tiết)
+# 2. MUA NGAY 1 SẢN PHẨM 
 @router.post("/checkout-direct")
 async def checkout_direct(order_info: OrderDirectCreate, current_user: dict = Depends(get_current_user)):
     try:
@@ -103,12 +129,25 @@ async def checkout_direct(order_info: OrderDirectCreate, current_user: dict = De
         raise HTTPException(status_code=400, detail="Mã sản phẩm không hợp lệ")
 
     if not product:
-        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại")
+        raise HTTPException(status_code=404, detail="Sản phẩm không tồn tại hoặc đã ngừng bán")
 
     if product.get("stock", 0) < order_info.quantity:
         raise HTTPException(status_code=400, detail=f"Sản phẩm '{product['name']}' không đủ số lượng trong kho")
 
     total_amount = product["price"] * order_info.quantity
+
+    # XỬ LÝ MÃ GIẢM GIÁ
+    discount_code = getattr(order_info, 'discount_code', None)
+    discount_percent = 0
+    if discount_code:
+        discount_percent = get_discount_percent(discount_code)
+        if discount_percent == 0:
+            raise HTTPException(status_code=400, detail="Mã giảm giá không hợp lệ hoặc không tồn tại!")
+
+    final_amount = total_amount
+    if discount_percent > 0:
+        discount_amount = total_amount * (discount_percent / 100)
+        final_amount = total_amount - discount_amount
 
     # Trừ kho
     await product_collection.update_one(
@@ -129,7 +168,10 @@ async def checkout_direct(order_info: OrderDirectCreate, current_user: dict = De
         "order_id": generate_order_id(),
         "username": current_user["username"],
         "items": order_items_detail,
-        "total_amount": total_amount,
+        "total_amount": final_amount,
+        "original_amount": total_amount,
+        "discount_code": discount_code,
+        "discount_percent": discount_percent,
         "shipping_address": order_info.shipping_address,
         "phone": order_info.phone,
         "payment_method": order_info.payment_method,
@@ -141,14 +183,13 @@ async def checkout_direct(order_info: OrderDirectCreate, current_user: dict = De
     return {
         "message": "Đặt hàng thành công", 
         "order_id": new_order["order_id"],
-        "total_amount": total_amount
+        "total_amount": final_amount
     }
 
 # 3. KHÁCH HÀNG: Lịch sử đơn hàng
 @router.get("/my-orders")
 async def get_my_orders(current_user: dict = Depends(get_current_user)):
     orders = []
-    # Sắp xếp mới nhất lên đầu (theo created_at)
     cursor = order_collection.find({"username": current_user["username"]}).sort("created_at", -1)
     async for document in cursor:
         document["_id"] = str(document["_id"])
@@ -173,7 +214,6 @@ async def update_order_status(id: str, data: OrderUpdateStatus, current_user: di
     if not order:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
 
-    # TỰ ĐỘNG HOÀN KHO NẾU HỦY ĐƠN
     if data.status == "Đã hủy" and order["status"] != "Đã hủy":
         for item in order["items"]:
             await product_collection.update_one(
@@ -183,3 +223,13 @@ async def update_order_status(id: str, data: OrderUpdateStatus, current_user: di
 
     await order_collection.update_one({"_id": ObjectId(id)}, {"$set": {"status": data.status}})
     return {"message": "Cập nhật trạng thái thành công"}
+
+# =======================================================
+# 6. API KIỂM TRA MÃ GIẢM GIÁ TỪ FRONTEND
+# =======================================================
+@router.get("/validate-discount/{code}")
+async def validate_discount_code(code: str):
+    discount_percent = get_discount_percent(code)
+    if discount_percent > 0:
+        return {"valid": True, "discount_percent": discount_percent, "message": "Mã hợp lệ"}
+    raise HTTPException(status_code=400, detail="Mã không hợp lệ hoặc đã hết hạn")

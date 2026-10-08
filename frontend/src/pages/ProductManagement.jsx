@@ -34,7 +34,6 @@ export default function ProductManagement() {
         fetchProducts();
     }, [role, navigate]);
 
-    // BẮT LỖI 401 KHI TẢI SẢN PHẨM
     const fetchProducts = async () => {
         try {
             const res = await api.get('/products/');
@@ -147,7 +146,6 @@ export default function ProductManagement() {
             fetchProducts();
             
         } catch (err) {
-            // TỰ ĐỘNG VĂNG RA NẾU HẾT HẠN TOKEN (401)
             if (err.response?.status === 401) {
                 alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
                 sessionStorage.clear();
@@ -159,7 +157,8 @@ export default function ProductManagement() {
             let errorMsg = "Lỗi xác thực dữ liệu với Server.";
             
             if (Array.isArray(detail)) {
-                errorMsg = detail.map(d => `❌ Trường [${d.loc[d.loc.length - 1]}]: ${d.msg}`).join('\n');
+                // Đã sửa lại lỗi cắt dòng do copy paste
+                errorMsg = detail.map(d => "❌ Trường [" + d.loc[d.loc.length - 1] + "]: " + d.msg).join('\n');
             } else if (typeof detail === 'string') {
                 errorMsg = detail;
             }

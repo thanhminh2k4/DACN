@@ -4,19 +4,20 @@ from model.cart import CartItemModel
 from db import db
 from security import get_current_user
 from bson.objectid import ObjectId
+from utils.discount_codes import get_discount_percent # Bổ sung import hàm xử lý mã giảm giá
 
 router = APIRouter()
 collection = db.carts
 product_collection = db.products
 
 @router.get("/")
-async def get_cart(current_user: dict = Depends(get_current_user)):
+async def get_cart(discount_code: str = None, current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "Customer":
         raise HTTPException(status_code=403, detail="Chỉ Khách hàng mới có giỏ hàng")
 
     cart = await collection.find_one({"username": current_user["username"]})
     if not cart:
-        return {"items": [], "total_price": 0}
+        return {"items": [], "total_price": 0, "final_price": 0, "order_discount_percent": 0}
     
     items = []
     total_price = 0
@@ -31,14 +32,30 @@ async def get_cart(current_user: dict = Depends(get_current_user)):
                     "product_id": item["product_id"],
                     "name": product["name"],
                     "price": product["price"],
+                    "discount_percent": product.get("discount_percent", 0), # Lấy % giảm giá của riêng SP đó
                     "image_url": product.get("image_url", ""),
                     "quantity": item["quantity"],
                     "subtotal": subtotal
                 })
         except:
             continue 
+
+    # Tính toán số tiền sau khi áp mã giảm giá cho toàn bộ đơn hàng
+    order_discount = 0
+    final_price = total_price
+    
+    if discount_code:
+        order_discount = get_discount_percent(discount_code)
+        if order_discount > 0:
+            discount_amount = total_price * (order_discount / 100)
+            final_price = total_price - discount_amount
             
-    return {"items": items, "total_price": total_price}
+    return {
+        "items": items, 
+        "total_price": total_price, 
+        "final_price": final_price, 
+        "order_discount_percent": order_discount
+    }
 
 @router.post("/add")
 async def add_to_cart(cart_item: CartItemModel, current_user: dict = Depends(get_current_user)):
