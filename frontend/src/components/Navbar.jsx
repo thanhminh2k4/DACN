@@ -7,7 +7,8 @@ export default function Navbar() {
     const navigate = useNavigate();
     const token = sessionStorage.getItem('access_token');
     const role = sessionStorage.getItem('role');
-    const fullName = sessionStorage.getItem('fullname') || sessionStorage.getItem('username') || 'Người dùng';
+    // Ưu tiên fullname, nếu rỗng thì lấy username
+    const fullName = sessionStorage.getItem('fullname') || sessionStorage.getItem('username') || 'Tài khoản';
     const [searchQuery, setSearchQuery] = useState('');
 
     const handleLogout = () => {
@@ -20,6 +21,15 @@ export default function Navbar() {
         if (searchQuery.trim()) {
             navigate(`/category?search=${searchQuery}`); 
         }
+    };
+
+    // Style để biến Tên thành một liên kết bấm được
+    const profileLinkStyle = {
+        cursor: 'pointer', 
+        fontWeight: 'bold', 
+        color: '#0275d8',
+        textDecoration: 'underline',
+        padding: '5px'
     };
 
     if (role === 'Admin' || role === 'Staff') {
@@ -36,7 +46,15 @@ export default function Navbar() {
                     )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <span className="user-info"> {fullName}</span>
+                    {/* BẤM VÀO TÊN SẼ SANG TRANG PROFILE */}
+                    <span 
+                        className="user-info" 
+                        style={profileLinkStyle} 
+                        onClick={() => navigate('/profile')}
+                        title="Xem Thông tin cá nhân"
+                    >
+                        {fullName}
+                    </span>
                     <button className="btn-logout" onClick={handleLogout}>Đăng xuất</button>
                 </div>
             </nav>
@@ -48,7 +66,6 @@ export default function Navbar() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <div className="nav-brand" onClick={() => navigate('/')}>Studyholic</div>
                 
-                {/* Trỏ thẳng sang trang Category */}
                 <div className="nav-item" style={{cursor: 'pointer'}} onClick={() => navigate('/category')}>
                     Danh mục 
                 </div>
@@ -72,7 +89,15 @@ export default function Navbar() {
             <div>
                 {token ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                        <span className="user-info"> {fullName}</span>
+                        {/* BẤM VÀO TÊN SẼ SANG TRANG PROFILE */}
+                        <span 
+                            className="user-info" 
+                            style={profileLinkStyle} 
+                            onClick={() => navigate('/profile')}
+                            title="Xem Thông tin cá nhân"
+                        >
+                            {fullName}
+                        </span>
                         <button className="btn-logout" onClick={handleLogout}>Đăng xuất</button>
                     </div>
                 ) : (

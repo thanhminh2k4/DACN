@@ -13,7 +13,6 @@ export default function Cart() {
     const [processingOrders, setProcessingOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // State cho Mã giảm giá
     const [promoCode, setPromoCode] = useState('');
     const [discountPercent, setDiscountPercent] = useState(0);
     const [appliedCode, setAppliedCode] = useState('');
@@ -54,17 +53,25 @@ export default function Cart() {
         }
     };
 
+    // HÀM MỚI: Xử lý tăng giảm số lượng mượt mà
+    const handleUpdateQuantity = async (productId, newQuantity) => {
+        if (newQuantity < 1) return; // Không cho giảm dưới 1
+        try {
+            await api.put('/cart/update', { product_id: productId, quantity: newQuantity });
+            fetchData(); // Cập nhật lại tổng tiền ngay lập tức
+        } catch (error) {
+            console.error("Lỗi cập nhật số lượng", error);
+        }
+    };
+
     const handleApplyCode = async () => {
         setDiscountMessage({ type: '', text: '' }); 
-
         if (!promoCode.trim()) {
             setDiscountMessage({ type: 'error', text: 'Vui lòng nhập mã giảm giá!' });
             return;
         }
-
         try {
             const res = await api.get(`/orders/validate-discount/${promoCode.trim()}`);
-            
             if (res.data.valid) {
                 setDiscountPercent(res.data.discount_percent);
                 setAppliedCode(promoCode.trim().toUpperCase());
@@ -74,11 +81,6 @@ export default function Cart() {
         } catch (error) {
             setDiscountPercent(0);
             setAppliedCode('');
-            
-            if (error.response?.status === 404) {
-                 setDiscountMessage({ type: 'error', text: 'Lỗi hệ thống (404). Vui lòng thử lại sau.' });
-                 return;
-            }
             setDiscountMessage({ type: 'error', text: 'Mã không hợp lệ hoặc đã hết hạn!' });
         }
     };
@@ -116,7 +118,6 @@ export default function Cart() {
                                             <td 
                                                 style={{ display: 'flex', alignItems: 'center', gap: '15px', cursor: 'pointer' }}
                                                 onClick={() => navigate(`/product/${item.product_id}`)}
-                                                title="Nhấn để xem chi tiết sản phẩm"
                                             >
                                                 {item.image_url ? (
                                                     <img src={item.image_url} alt={item.name} className="cart-item-img" />
@@ -126,7 +127,22 @@ export default function Cart() {
                                                 <span style={{ color: '#0275d8', fontWeight: 'bold' }}>{item.name}</span>
                                             </td>
                                             <td>{item.price.toLocaleString()} đ</td>
-                                            <td><strong>{item.quantity}</strong></td>
+                                            
+                                            {/* KHU VỰC TĂNG GIẢM SỐ LƯỢNG MỚI */}
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <button 
+                                                        onClick={() => handleUpdateQuantity(item.product_id, item.quantity - 1)}
+                                                        style={{ width: '28px', height: '28px', border: '1px solid #ccc', background: '#f8f9fa', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}
+                                                    >-</button>
+                                                    <strong style={{ minWidth: '20px', textAlign: 'center' }}>{item.quantity}</strong>
+                                                    <button 
+                                                        onClick={() => handleUpdateQuantity(item.product_id, item.quantity + 1)}
+                                                        style={{ width: '28px', height: '28px', border: '1px solid #ccc', background: '#f8f9fa', cursor: 'pointer', fontWeight: 'bold', borderRadius: '4px' }}
+                                                    >+</button>
+                                                </div>
+                                            </td>
+                                            
                                             <td><strong style={{color: '#d9534f'}}>{item.subtotal.toLocaleString()} đ</strong></td>
                                             <td>
                                                 <button className="btn-remove-item" onClick={(e) => { e.stopPropagation(); handleRemoveItem(item.product_id); }}>
@@ -138,10 +154,7 @@ export default function Cart() {
                                 </tbody>
                             </table>
                             
-                            {/* KHU VỰC NHẬP MÁ GIẢM GIÁ & TỔNG KẾT ĐƠN HÀNG (SẮP XẾP NGANG) */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '30px', borderTop: '2px solid #eee', paddingTop: '20px' }}>
-                                
-                                {/* CỘT TRÁI: Nhập mã giảm giá */}
                                 <div style={{ flex: '0 0 45%', padding: '15px', border: '1px dashed #ccc', borderRadius: '8px', background: '#fafafa' }}>
                                     <strong style={{ display: 'block', marginBottom: '10px', color: '#333', fontSize: '15px' }}>Mã giảm giá:</strong>
                                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -149,34 +162,18 @@ export default function Cart() {
                                             type="text" 
                                             placeholder="Nhập mã (VD: SALE20)" 
                                             value={promoCode}
-                                            onChange={e => {
-                                                setPromoCode(e.target.value);
-                                                setDiscountMessage({ type: '', text: '' }); 
-                                            }}
+                                            onChange={e => { setPromoCode(e.target.value); setDiscountMessage({ type: '', text: '' }); }}
                                             style={{ padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', flex: 1, outline: 'none' }}
                                         />
-                                        <button 
-                                            onClick={handleApplyCode}
-                                            style={{ padding: '10px 20px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                                        >
-                                            Áp dụng
-                                        </button>
+                                        <button onClick={handleApplyCode} style={{ padding: '10px 20px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Áp dụng</button>
                                     </div>
-                                    
-                                    {/* THÔNG BÁO LỖI HOẶC THÀNH CÔNG INLINE */}
                                     {discountMessage.text && (
-                                        <div style={{ 
-                                            color: discountMessage.type === 'error' ? '#dc3545' : '#28a745', 
-                                            fontSize: '14px', 
-                                            marginTop: '10px', 
-                                            fontWeight: discountMessage.type === 'success' ? 'bold' : 'normal' 
-                                        }}>
+                                        <div style={{ color: discountMessage.type === 'error' ? '#dc3545' : '#28a745', fontSize: '14px', marginTop: '10px', fontWeight: discountMessage.type === 'success' ? 'bold' : 'normal' }}>
                                             {discountMessage.text}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* CỘT PHẢI: Tổng thanh toán */}
                                 <div className="cart-summary" style={{ flex: '0 0 45%', textAlign: 'right' }}>
                                     {discountPercent > 0 && (
                                         <div style={{ marginBottom: '12px', fontSize: '15px', color: '#666', lineHeight: '1.6' }}>
@@ -201,7 +198,6 @@ export default function Cart() {
 
                 <div style={{ flex: 3, background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', height: 'fit-content' }}>
                     <h3 style={{ borderBottom: '2px solid #ddd', paddingBottom: '10px', color: '#d9534f' }}>Đang xử lý ({processingOrders.length})</h3>
-                    
                     {processingOrders.length === 0 ? (
                         <p style={{ fontSize: '14px', color: '#777', marginTop: '15px' }}>Không có đơn hàng nào đang giao.</p>
                     ) : (
@@ -211,18 +207,12 @@ export default function Cart() {
                                     <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Mã Đơn: {order.order_id}</div>
                                     <div style={{ fontSize: '13px', color: '#555', marginBottom: '8px' }}>{order.created_at}</div>
                                     <div style={{ color: '#0275d8', fontWeight: 'bold', fontSize: '14px' }}>Trạng thái: {order.status}</div>
-                                    <div style={{ marginTop: '10px', fontSize: '15px', fontWeight: 'bold', color: '#d9534f' }}>
-                                        {order.total_amount.toLocaleString()} đ
-                                    </div>
+                                    <div style={{ marginTop: '10px', fontSize: '15px', fontWeight: 'bold', color: '#d9534f' }}>{order.total_amount.toLocaleString()} đ</div>
                                 </div>
                             ))}
                         </div>
                     )}
-                    
-                    <button 
-                        onClick={() => navigate('/order-history')}
-                        style={{ width: '100%', marginTop: '20px', padding: '10px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
+                    <button onClick={() => navigate('/order-history')} style={{ width: '100%', marginTop: '20px', padding: '10px', background: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                         Xem Lịch sử Đơn hàng
                     </button>
                 </div>

@@ -12,10 +12,9 @@ export default function ProductDetail() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     
-    // Xử lý mã giảm giá
-    const [promoCode, setPromoCode] = useState('');
-    const [discountValue, setDiscountValue] = useState(0); 
-    const [appliedCode, setAppliedCode] = useState(''); // Lưu mã nếu áp dụng thành công
+    // STATE CHO ĐỒNG HỒ ĐẾM NGƯỢC
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isDiscountActive, setIsDiscountActive] = useState(false);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -32,37 +31,39 @@ export default function ProductDetail() {
         fetchDetail();
     }, [id, navigate]);
 
-    // GỌI API ĐỂ KIỂM TRA MÃ GIẢM GIÁ (Đã sửa /order thành /orders)
-    const handleApplyCode = async () => {
-        if (!promoCode.trim()) {
-            alert("Vui lòng nhập mã giảm giá!");
+    // BỘ MÁY ĐẾM NGƯỢC REAL-TIME
+    useEffect(() => {
+        if (!product || !product.discount_end_time) {
+            setIsDiscountActive(false);
             return;
         }
 
-        try {
-            // Đã đổi thành /orders/ 
-            const res = await api.get(`/orders/validate-discount/${promoCode.trim()}`);
-            
-            if (res.data.valid) {
-                const percent = res.data.discount_percent;
-                // Tính số tiền được giảm dựa trên % trả về
-                const calculatedDiscount = product.price * (percent / 100);
+        const updateTimer = () => {
+            const now = new Date().getTime();
+            const endTime = new Date(product.discount_end_time).getTime();
+            const distance = endTime - now;
+
+            if (distance <= 0) {
+                // Hết giờ
+                setIsDiscountActive(false);
+                setTimeLeft('');
+            } else {
+                // Đang trong giờ vàng
+                setIsDiscountActive(true);
+                const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((distance % (1000 * 60)) / 1000);
                 
-                setDiscountValue(calculatedDiscount);
-                setAppliedCode(promoCode.trim().toUpperCase());
-                alert(`Áp dụng mã thành công! Bạn được giảm ${percent}%`);
+                const format = (num) => num.toString().padStart(2, '0');
+                setTimeLeft(`${format(h)}:${format(m)}:${format(s)}`);
             }
-        } catch (error) {
-            // Nếu vẫn lỗi 404 thì nguyên nhân là do chưa Restart Backend
-            if (error.response?.status === 404) {
-                 alert("Lỗi 404: Không tìm thấy API trên Server. Vui lòng tắt và bật lại (Restart) Backend FastAPI của bạn!");
-                 return;
-            }
-            alert("Mã không hợp lệ hoặc đã hết hạn!");
-            setDiscountValue(0);
-            setAppliedCode('');
-        }
-    };
+        };
+
+        updateTimer(); // Chạy ngay lần đầu tiên
+        const timerId = setInterval(updateTimer, 1000); // Cập nhật mỗi giây
+        
+        return () => clearInterval(timerId); // Xóa bộ nhớ khi thoát trang
+    }, [product]);
 
     const handleAddToCart = async () => {
         if (!token) return navigate('/login');
@@ -76,20 +77,19 @@ export default function ProductDetail() {
 
     const handleCheckout = () => {
          if (!token) return navigate('/login');
-    
-        // Gửi cả sản phẩm và mã giảm giá sang trang Checkout (nếu có)
+        // Không gửi mã giảm giá nữa vì Flash Sale sẽ tự áp dụng giá mới
         navigate('/checkout', { 
-            state: { 
-                direct: true, 
-                product: product,
-                discount_code: appliedCode // Đính kèm mã để trang checkout xử lý
-            } 
+            state: { direct: true, product: product, discount_code: null } 
         });
     };
     
     if (loading) return <div style={{padding: '50px'}}>Đang tải chi tiết...</div>;
 
-    // Tính toán giá sau giảm
+    // TÍNH TOÁN GIÁ TIỀN (Chỉ giảm khi đồng hồ còn chạy)
+    const discountValue = isDiscountActive && product.discount_percent > 0 
+        ? product.price * (product.discount_percent / 100) 
+        : 0;
+        
     const finalPrice = product.price - discountValue;
 
     return (
@@ -97,10 +97,10 @@ export default function ProductDetail() {
             <button onClick={() => navigate('/')} style={{marginBottom: '20px', padding: '5px 15px'}}>← Quay lại</button>
             
             <div className="detail-grid">
-                {/* TRÁI: 6 Phần - Chi tiết */}
+                {/* TRÁI: Chi tiết sản phẩm */}
                 <div className="detail-left">
                     <h1 className="detail-title">{product.name}</h1>
-                    <div className="detail-id">Mã SP: <strong>{product.product_code || '---'}</strong></div>
+                    <div className="detail-id">Mã SP: <strong>{product.product_code || product.custom_id || product.ma_sp || '---'}</strong></div>
                     
                     <div className="detail-info">
                         <p><strong>Nhà cung cấp:</strong> {product.supplier || 'Đang cập nhật'}</p>
@@ -109,24 +109,30 @@ export default function ProductDetail() {
                         <p><strong>Mô tả:</strong> {product.description || 'Chưa có mô tả'}</p>
                     </div>
 
-                    <div className="discount-box">
-                        <div>Giảm giá hiện hành: <strong>{product.discount_percent || 0}%</strong></div>
-                        <div style={{ display: 'flex', gap: '5px', marginTop: '10px' }}>
-                            <input 
-                                type="text" 
-                                className="discount-input" 
-                                placeholder="Nhập mã (VD: SALE20)" 
-                                value={promoCode}
-                                onChange={(e) => setPromoCode(e.target.value)}
-                            />
-                            <button className="btn-apply" onClick={handleApplyCode}>Áp dụng</button>
+                    {/* KHU VỰC ĐỒNG HỒ FLASH SALE */}
+                    {isDiscountActive && product.discount_percent > 0 && (
+                        <div className="discount-box" style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ color: '#856404', fontWeight: 'bold', fontSize: '16px' }}>
+                                    ⚡ ĐANG GIẢM GIÁ: {product.discount_percent}%
+                                </div>
+                                <div style={{ background: '#d9534f', color: '#fff', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', fontSize: '18px', letterSpacing: '1px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                    ⏱ {timeLeft}
+                                </div>
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#666', marginTop: '8px' }}>
+                                Nhanh tay lên! Mức giá ưu đãi sẽ kết thúc khi hết thời gian.
+                            </div>
                         </div>
-                        {appliedCode && <div style={{color: 'green', fontSize: '13px', marginTop: '5px'}}>Mã đã dùng: {appliedCode}</div>}
-                    </div>
+                    )}
 
                     <div className="price-box">
-                        {discountValue > 0 && <span className="old-price">{product.price.toLocaleString()}đ</span>}
-                        Giá thanh toán: {finalPrice > 0 ? finalPrice.toLocaleString() : 0} VNĐ
+                        {discountValue > 0 && (
+                            <span className="old-price" style={{ textDecoration: 'line-through', color: '#999', marginRight: '15px', fontSize: '18px' }}>
+                                {product.price.toLocaleString()}đ
+                            </span>
+                        )}
+                        Giá thanh toán: <span style={{ color: '#d9534f', fontWeight: 'bold', fontSize: '24px' }}>{finalPrice > 0 ? finalPrice.toLocaleString() : 0} VNĐ</span>
                     </div>
 
                     <div className="action-row">
@@ -148,4 +154,4 @@ export default function ProductDetail() {
             </div>
         </div>
     );
-}
+}   

@@ -11,6 +11,7 @@ class OrderCreate(BaseModel):
     shipping_address: str = Field(..., description="Địa chỉ giao hàng")
     phone: str = Field(..., description="Số điện thoại liên hệ")
     payment_method: str = Field(default="Thanh toán khi nhận hàng (COD)", description="Phương thức thanh toán")
+    discount_code: Optional[str] = None
 
 class OrderDirectCreate(BaseModel):
     product_id: str = Field(..., description="ID của sản phẩm")
@@ -18,6 +19,7 @@ class OrderDirectCreate(BaseModel):
     shipping_address: str = Field(..., description="Địa chỉ giao hàng")
     phone: str = Field(..., description="Số điện thoại liên hệ")
     payment_method: str = Field(default="Thanh toán khi nhận hàng (COD)", description="Phương thức thanh toán")
+    discount_code: Optional[str] = None
     
 class OrderUpdateStatus(BaseModel):
     status: str = Field(..., description="Trạng thái đơn hàng (VD: Chờ duyệt, Đang giao, Hoàn thành, Đã hủy)")

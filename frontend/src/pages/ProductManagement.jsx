@@ -134,7 +134,8 @@ export default function ProductManagement() {
                 product_code: formData.product_code || "",
                 supplier: formData.supplier || "",
                 discount_percent: Number(formData.discount_percent) || 0,
-                discount_duration: Number(formData.discount_duration) || 0
+                // SỬA: Đổi tên trường discount_hours giống ở Backend
+                discount_hours: Number(formData.discount_duration) || 0 
             };
 
             if (isEditing) {
@@ -157,7 +158,6 @@ export default function ProductManagement() {
             let errorMsg = "Lỗi xác thực dữ liệu với Server.";
             
             if (Array.isArray(detail)) {
-                // Đã sửa lại lỗi cắt dòng do copy paste
                 errorMsg = detail.map(d => "❌ Trường [" + d.loc[d.loc.length - 1] + "]: " + d.msg).join('\n');
             } else if (typeof detail === 'string') {
                 errorMsg = detail;

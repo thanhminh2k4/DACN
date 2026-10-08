@@ -12,6 +12,7 @@ import Checkout from './pages/Checkout';
 import OrderManagement from './pages/OrderManagement';
 import OrderHistory from './pages/OrderHistory';
 import Category from './pages/Category';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
         <Route path="/manage-orders" element={<OrderManagement />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/category" element={<Category />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </BrowserRouter>
   );

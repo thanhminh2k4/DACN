@@ -108,3 +108,23 @@ async def remove_from_cart(product_id: str, current_user: dict = Depends(get_cur
         {"$set": {"items": items}}
     )
     return {"message": "Đã xóa sản phẩm khỏi giỏ hàng"}
+
+from pydantic import BaseModel
+
+class CartUpdate(BaseModel):
+    product_id: str
+    quantity: int
+
+@router.put("/update")
+async def update_cart_item(data: CartUpdate, current_user: dict = Depends(get_current_user)):
+    if data.quantity <= 0:
+        await cart_collection.update_one(
+            {"username": current_user["username"]},
+            {"$pull": {"items": {"product_id": data.product_id}}}
+        )
+    else:
+        await cart_collection.update_one(
+            {"username": current_user["username"], "items.product_id": data.product_id},
+            {"$set": {"items.$.quantity": data.quantity}}
+        )
+    return {"message": "Cập nhật số lượng thành công"}
