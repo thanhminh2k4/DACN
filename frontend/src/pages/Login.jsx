@@ -1,3 +1,4 @@
+// Tệp: frontend/src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
@@ -18,8 +19,12 @@ export default function Login() {
                 password
             });
             
-            localStorage.setItem('access_token', response.data.access_token);
-            localStorage.setItem('role', response.data.role);
+            sessionStorage.setItem('access_token', response.data.access_token);
+            sessionStorage.setItem('role', response.data.role);
+            
+            // LƯU HỌ TÊN VÀ USERNAME CHO NAVBAR ĐỌC
+            sessionStorage.setItem('fullname', response.data.fullname || '');
+            sessionStorage.setItem('username', response.data.username || '');
             
             navigate('/');
         } catch (err) {

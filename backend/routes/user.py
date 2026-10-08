@@ -46,7 +46,17 @@ async def login_user(user: UserLogin):
     await collection.update_one({"_id": db_user["_id"]}, {"$set": {"status": "Hoạt động"}})
     
     access_token = create_access_token(data={"sub": db_user["username"], "role": db_user["role"]})
-    return {"access_token": access_token, "token_type": "bearer", "role": db_user["role"]}
+    
+    # SỬA LỖI Ở ĐÂY: Quét các trường có khả năng là Họ và tên trong Database
+    ho_va_ten = db_user.get("fullname") or db_user.get("full_name") or db_user.get("name") or db_user.get("ho_ten") or ""
+
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "role": db_user["role"],
+        "fullname": ho_va_ten,
+        "username": db_user.get("username", "")
+    }
 
 @router.post("/logout")
 async def logout_user(current_user: dict = Depends(get_current_user)):
@@ -100,4 +110,3 @@ async def update_user_status_role(user_id: str, data: UserUpdateAdmin, current_u
     if update_data:
         await collection.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
         return {"message": "Điều phối tài khoản thành công"}
-    return {"message": "Không có dữ liệu thay đổi"}

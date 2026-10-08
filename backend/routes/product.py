@@ -16,7 +16,6 @@ async def get_all_products():
         products.append(document)
     return {"total": len(products), "products": products}
 
-# Tệp: backend/routes/product.py (Thêm API này vào)
 @router.get("/{product_id}")
 async def get_product_detail(product_id: str):
     try:
@@ -36,7 +35,6 @@ async def create_product(product: ProductModel, current_user: dict = Depends(get
         return {"message": "Thêm sản phẩm thành công!", "product_id": str(result.inserted_id)}
     raise HTTPException(status_code=400, detail="Không thể thêm sản phẩm")
 
-# API Cập nhật (Sửa) sản phẩm
 @router.put("/update/{product_id}")
 async def update_product(product_id: str, product: ProductModel, current_user: dict = Depends(get_admin_or_staff)):
     try:
@@ -51,7 +49,6 @@ async def update_product(product_id: str, product: ProductModel, current_user: d
     except Exception:
         raise HTTPException(status_code=400, detail="ID sản phẩm không hợp lệ")
 
-# API Xóa sản phẩm
 @router.delete("/delete/{product_id}")
 async def delete_product(product_id: str, current_user: dict = Depends(get_admin_or_staff)):
     try:
@@ -61,3 +58,18 @@ async def delete_product(product_id: str, current_user: dict = Depends(get_admin
         raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm để xóa")
     except Exception:
         raise HTTPException(status_code=400, detail="ID sản phẩm không hợp lệ")
+
+@router.put("/{id}/toggle-status")
+async def toggle_product_status(id: str, current_user: dict = Depends(get_admin_or_staff)):
+    product = await product_collection.find_one({"_id": ObjectId(id)})
+    if not product:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sản phẩm")
+
+    current_status = product.get("is_active", True)
+    new_status = not current_status
+    
+    await product_collection.update_one(
+        {"_id": ObjectId(id)},
+        {"$set": {"is_active": new_status}}
+    )
+    return {"message": "Cập nhật trạng thái thành công", "is_active": new_status}

@@ -1,0 +1,124 @@
+/* Tệp: frontend/src/styles/Navbar.css */
+.main-navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 40px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+}
+
+.nav-brand {
+    font-size: 26px;
+    font-weight: bold;
+    color: #d9534f;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Thanh tìm kiếm */
+.nav-search {
+    display: flex;
+    flex: 0.5;
+    margin: 0 20px;
+}
+
+.nav-search input {
+    width: 100%;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px 0 0 4px;
+    outline: none;
+}
+
+.nav-search button {
+    padding: 10px 20px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+}
+
+/* Các menu liên kết */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+.nav-item {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+    position: relative;
+}
+
+.nav-item:hover {
+    color: #d9534f;
+}
+
+/* Dropdown Danh mục sản phẩm */
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #fff;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    padding: 10px 0;
+    z-index: 1001;
+}
+
+.nav-item.dropdown:hover .dropdown-menu {
+    display: block;
+}
+
+.dropdown-item {
+    padding: 10px 20px;
+    display: block;
+    color: #333;
+    text-decoration: none;
+    font-weight: normal;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #d9534f;
+}
+
+/* Nút xác thực */
+.user-info {
+    color: #0275d8;
+    font-weight: bold;
+}
+
+.btn-login {
+    background-color: #0275d8;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 4px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-logout {
+    background-color: transparent;
+    color: #666;
+    border: 1px solid #ccc;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-logout:hover {
+    background-color: #f1f1f1;
+}

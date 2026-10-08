@@ -7,8 +7,8 @@ import '../styles/ProductDetail.css';
 export default function ProductDetail() {
     const { id } = useParams(); // Lấy ID sản phẩm từ URL
     const navigate = useNavigate();
-    const token = localStorage.getItem('access_token');
-    const role = localStorage.getItem('role');
+    const token = sessionStorage.getItem('access_token');
+    const role = sessionStorage.getItem('role');
     
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -54,10 +54,11 @@ export default function ProductDetail() {
     };
 
     const handleCheckout = () => {
-        // Logic Thanh toán thẳng sẽ được phát triển sau
-        alert("Chức năng thanh toán trực tiếp đang phát triển!");
+         if (!token) return navigate('/login');
+    
+        navigate('/checkout', { state: { direct: true, product: product } });
     };
-
+    
     if (loading) return <div style={{padding: '50px'}}>Đang tải chi tiết...</div>;
 
     // Tính toán giá sau giảm

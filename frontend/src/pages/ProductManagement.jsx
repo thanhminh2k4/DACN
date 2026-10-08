@@ -1,3 +1,4 @@
+// Tệp: frontend/src/pages/ProductManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -5,7 +6,7 @@ import '../styles/Admin.css';
 
 export default function ProductManagement() {
     const navigate = useNavigate();
-    const role = localStorage.getItem('role');
+    const role = sessionStorage.getItem('role');
     const [products, setProducts] = useState([]);
     
     // State quản lý form
@@ -58,6 +59,20 @@ export default function ProductManagement() {
         }
     };
 
+    const handleToggleStatus = async (id, currentStatus) => {
+        const isCurrentlyActive = currentStatus !== false; // Mặc định là true nếu undefined
+        const actionText = isCurrentlyActive ? "NGỪNG BÁN" : "MỞ BÁN LẠI";
+        
+        if (window.confirm(`Bạn có chắc muốn ${actionText} sản phẩm này?\n(Sản phẩm ngừng bán sẽ bị ẩn khỏi trang của khách hàng)`)) {
+            try {
+                await api.put(`/products/${id}/toggle-status`);
+                fetchProducts(); 
+            } catch (error) {
+                alert("Lỗi khi cập nhật trạng thái!");
+            }
+        }
+    };
+
     const handleSave = async (e) => {
         e.preventDefault();
         try {
@@ -76,7 +91,7 @@ export default function ProductManagement() {
     return (
         <div className="admin-container">
             <div className="admin-header">
-                <h2>Quản lý Sản phẩm (Dành cho {role})</h2>
+                <h2>Quản lý Sản phẩm </h2>
                 <div>
                     <button className="btn-primary" onClick={handleOpenAdd}>+ Thêm Sản phẩm</button>
                     <button className="btn-action" style={{marginLeft: '10px'}} onClick={() => navigate('/')}>Về Trang chủ</button>
@@ -90,26 +105,56 @@ export default function ProductManagement() {
                         <th>Danh mục</th>
                         <th>Giá</th>
                         <th>Tồn kho</th>
+                        <th>Trạng thái</th> {/* Đã thêm cột Trạng thái */}
                         <th>Hành động</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {products.map(p => (
-                        <tr key={p._id}>
-                            <td>{p.name}</td>
-                            <td>{p.category}</td>
-                            <td>{p.price.toLocaleString()} VNĐ</td>
-                            <td>{p.stock}</td>
-                            <td>
-                                <button className="btn-action btn-edit" onClick={() => handleOpenEdit(p)}>Sửa</button>
-                                <button className="btn-action btn-delete" onClick={() => handleDelete(p._id)}>Xóa</button>
-                            </td>
-                        </tr>
-                    ))}
+                    {products.map(p => {
+                        const isActive = p.is_active !== false; 
+                        
+                        return (
+                            <tr key={p._id} style={{ opacity: isActive ? 1 : 0.6 }}>
+                                <td>{p.name}</td>
+                                <td>{p.category}</td>
+                                <td>{p.price.toLocaleString()} VNĐ</td>
+                                <td>{p.stock}</td>
+                                
+                                {/* HIỂN THỊ CỘT TRẠNG THÁI */}
+                                <td>
+                                    <span style={{ 
+                                        padding: '4px 8px', 
+                                        borderRadius: '4px', 
+                                        fontSize: '12px',
+                                        fontWeight: 'bold',
+                                        backgroundColor: isActive ? '#d4edda' : '#f8d7da',
+                                        color: isActive ? '#155724' : '#721c24'
+                                    }}>
+                                        {isActive ? "Đang bán" : "Ngừng bán"}
+                                    </span>
+                                </td>
+
+                                {/* HIỂN THỊ CÁC NÚT HÀNH ĐỘNG */}
+                                <td>
+                                    <button className="btn-action btn-edit" style={{ marginRight: '5px' }} onClick={() => handleOpenEdit(p)}>Sửa</button>
+                                    <button className="btn-action btn-delete" style={{ marginRight: '5px' }} onClick={() => handleDelete(p._id)}>Xóa</button>
+                                    
+                                    {/* Nút Bật / Tắt trạng thái */}
+                                    <button 
+                                        className="btn-action"
+                                        style={{ backgroundColor: isActive ? '#ffc107' : '#28a745', color: isActive ? '#000' : '#fff' }}
+                                        onClick={() => handleToggleStatus(p._id, p.is_active)}
+                                    >
+                                        {isActive ? "Tạm ngưng" : "Mở bán"}
+                                    </button>
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
 
-            {/* Modal Form Thêm/Sửa */}
+            {/* Modal Form Thêm/Sửa (Giữ nguyên hoàn toàn) */}
             {showModal && (
                 <div className="modal-overlay">
                     <div className="modal-content">

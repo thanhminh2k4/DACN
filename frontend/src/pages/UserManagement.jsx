@@ -5,7 +5,7 @@ import '../styles/Admin.css';
 
 export default function UserManagement() {
     const navigate = useNavigate();
-    const role = localStorage.getItem('role');
+    const role = sessionStorage.getItem('role');
     const [users, setUsers] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
