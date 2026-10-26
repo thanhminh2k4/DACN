@@ -24,7 +24,6 @@ app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 
 @app.on_event("startup")
 async def create_super_admin():
-    # Sửa lại điều kiện tìm kiếm khớp với tên đăng nhập mới
     super_admin = await db.users.find_one({"username": "adminSSS"})
     
     if not super_admin:

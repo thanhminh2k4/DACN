@@ -9,6 +9,6 @@ MONGO_URL = os.getenv("MONGO_URL")
 
 client = AsyncIOMotorClient(MONGO_URL)
 
-db = client.studyholic
+db = client.Studyholic
 
 print("Đã khởi tạo cấu hình kết nối MongoDB.")
