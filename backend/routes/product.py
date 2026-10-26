@@ -46,7 +46,6 @@ async def create_product(product: ProductModel, current_user: dict = Depends(get
         discount_percent, discount_hours = 0, 0
 
     if discount_percent > 0 and discount_hours > 0:
-        # Lấy giờ Việt Nam hiện tại và cộng thêm số giờ
         now_vn = datetime.now(VN_TZ)
         end_time = now_vn + timedelta(hours=discount_hours)
         product_dict["discount_end_time"] = end_time.isoformat() 
@@ -62,8 +61,6 @@ async def create_product(product: ProductModel, current_user: dict = Depends(get
 async def update_product(product_id: str, product: ProductModel, current_user: dict = Depends(get_admin_or_staff)):
     try:
         product_dict = product.model_dump()
-        
-        # LOGIC CẬP NHẬT LẠI GIỜ FLASH SALE VỚI MÚI GIỜ VIỆT NAM
         try:
             discount_percent = float(product_dict.get("discount_percent") or 0)
             discount_hours = float(product_dict.get("discount_hours") or 0)
@@ -71,7 +68,6 @@ async def update_product(product_id: str, product: ProductModel, current_user: d
             discount_percent, discount_hours = 0, 0
             
         if discount_percent > 0 and discount_hours > 0:
-             # Lấy giờ Việt Nam hiện tại và cộng thêm số giờ
             now_vn = datetime.now(VN_TZ)
             end_time = now_vn + timedelta(hours=discount_hours)
             product_dict["discount_end_time"] = end_time.isoformat() 

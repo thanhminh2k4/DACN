@@ -1,5 +1,3 @@
-# Tệp: backend/utils/discount_codes.py
-
 """
 File này chứa toàn bộ các mã giảm giá hợp lệ của hệ thống Studyholic.
 Chỉ những mã có mặt trong dictionary này mới được áp dụng khi khách hàng thanh toán.
