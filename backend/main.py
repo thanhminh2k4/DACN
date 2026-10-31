@@ -10,7 +10,7 @@ app = FastAPI(title="Studyholic API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "[https://studyholic-ylot.onrender.com](https://studyholic-ylot.onrender.com)"], 
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
