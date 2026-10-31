@@ -1,4 +1,3 @@
-// Tệp: frontend/src/pages/Category.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
@@ -39,7 +38,10 @@ export default function Category() {
         const fetchProducts = async () => {
             try {
                 const response = await api.get('/products');
-                const activeProducts = response.data.products.filter(p => p.is_active !== false);
+                // ĐÃ FIX: Trích xuất mảng an toàn để không bị lỗi undefined khi dùng filter
+                const rawData = response.data;
+                const productArray = Array.isArray(rawData) ? rawData : (rawData?.products || rawData?.data || []);
+                const activeProducts = productArray.filter(p => p.is_active !== false);
                 setProducts(activeProducts);
             } catch (error) {
                 console.error("Lỗi khi tải sản phẩm:", error);

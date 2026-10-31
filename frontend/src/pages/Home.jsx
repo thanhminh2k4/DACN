@@ -1,4 +1,3 @@
-// Tệp: frontend/src/pages/Home.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -27,7 +26,10 @@ export default function Home() {
         const fetchProducts = async () => {
             try {
                 const response = await api.get('/products');
-                const activeProducts = response.data.products.filter(p => p.is_active !== false);
+                // ĐÃ FIX: Trích xuất mảng an toàn để không bị lỗi undefined khi dùng filter
+                const rawData = response.data;
+                const productArray = Array.isArray(rawData) ? rawData : (rawData?.products || rawData?.data || []);
+                const activeProducts = productArray.filter(p => p.is_active !== false);
                 setProducts(activeProducts);
             } catch (error) {
                 console.error(error);
