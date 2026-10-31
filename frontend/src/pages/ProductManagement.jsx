@@ -36,7 +36,7 @@ export default function ProductManagement() {
 
     const fetchProducts = async () => {
         try {
-            const res = await api.get('/products/');
+            const res = await api.get('/products');
             setProducts(res.data.products);
         } catch (error) {
             if (error.response?.status === 401) {

@@ -19,7 +19,7 @@ export default function ProductDetail() {
     useEffect(() => {
         const fetchDetail = async () => {
             try {
-                const res = await api.get(`/products/${id}`);
+                const res = await api.get(`/products${id}`);
                 setProduct(res.data);
             } catch (err) {
                 alert("Không tìm thấy sản phẩm!");

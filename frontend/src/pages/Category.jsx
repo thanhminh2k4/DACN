@@ -38,7 +38,7 @@ export default function Category() {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await api.get('/products/');
+                const response = await api.get('/products');
                 const activeProducts = response.data.products.filter(p => p.is_active !== false);
                 setProducts(activeProducts);
             } catch (error) {
