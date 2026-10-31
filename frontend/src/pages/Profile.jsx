@@ -1,4 +1,3 @@
-// Tệp: frontend/src/pages/Profile.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -43,7 +42,18 @@ export default function Profile() {
     const fetchProfile = async () => {
         try {
             const res = await api.get('/users/me');
-            setProfile(res.data);
+            // ĐÃ FIX: Trích xuất an toàn dữ liệu trả về để chống lỗi undefined
+            const rawData = res.data;
+            const safeProfile = rawData?.user || rawData?.data || rawData || {};
+            setProfile({
+                fullname: safeProfile.fullname || '',
+                phone: safeProfile.phone || '',
+                email: safeProfile.email || '',
+                address: safeProfile.address || '',
+                avatar_url: safeProfile.avatar_url || '',
+                custom_id: safeProfile.custom_id || '',
+                username: safeProfile.username || ''
+            });
         } catch (error) {
             console.error("Lỗi lấy thông tin:", error);
         } finally {
@@ -109,25 +119,26 @@ export default function Profile() {
                 {/* ================= CỘT TRÁI: ẢNH & THÔNG TIN CHUNG ================= */}
                 <div style={{ flex: '0 0 30%', background: '#fff', padding: '30px 20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-                        {profile.avatar_url ? (
+                        {profile?.avatar_url ? (
                             <img src={profile.avatar_url} alt="Avatar" style={{ width: '160px', height: '160px', borderRadius: '50%', objectFit: 'cover', border: '4px solid #f1f1f1' }} />
                         ) : (
                             <div style={{ width: '160px', height: '160px', borderRadius: '50%', background: '#0275d8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '50px', fontWeight: 'bold', border: '4px solid #f1f1f1' }}>
-                                {profile.username?.charAt(0).toUpperCase()}
+                                {/* ĐÃ FIX: Bảo vệ gọi charAt phòng khi username undefined */}
+                                {profile?.username ? profile.username.charAt(0).toUpperCase() : '?'}
                             </div>
                         )}
                     </div>
                     
                     <h3 style={{ margin: '0 0 15px 0', fontSize: '22px', color: '#333' }}>
-                        {profile.fullname || 'Người dùng'}
+                        {profile?.fullname || 'Người dùng'}
                     </h3>
                     
                     <div style={{ fontSize: '14px', color: '#666', lineHeight: '1.8' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #eee', paddingBottom: '8px', marginBottom: '8px' }}>
-                            <span>Tên đăng nhập:</span> <strong>{profile.username}</strong>
+                            <span>Tên đăng nhập:</span> <strong>{profile?.username || 'N/A'}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #eee', paddingBottom: '8px', marginBottom: '8px' }}>
-                            <span>ID Hệ thống:</span> <strong>{profile.custom_id}</strong>
+                            <span>ID Hệ thống:</span> <strong>{profile?.custom_id || 'N/A'}</strong>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Vai trò:</span> 
@@ -136,7 +147,8 @@ export default function Profile() {
                                 color: role === 'Staff' ? '#000' : '#fff', 
                                 padding: '3px 10px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold' 
                             }}>
-                                {role}
+                                {/* ĐÃ FIX: Thêm backup label cho role nếu mất cache session */}
+                                {role || 'Khách'}
                             </span>
                         </div>
                     </div>
@@ -162,19 +174,19 @@ export default function Profile() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
                                 <div>
                                     <label style={labelStyle}>Họ và tên:</label>
-                                    <div style={textDataStyle}>{profile.fullname || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
+                                    <div style={textDataStyle}>{profile?.fullname || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Số điện thoại:</label>
-                                    <div style={textDataStyle}>{profile.phone || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
+                                    <div style={textDataStyle}>{profile?.phone || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Email:</label>
-                                    <div style={textDataStyle}>{profile.email || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
+                                    <div style={textDataStyle}>{profile?.email || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Địa chỉ liên hệ:</label>
-                                    <div style={textDataStyle}>{profile.address || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
+                                    <div style={textDataStyle}>{profile?.address || <span style={{color: '#aaa'}}>Chưa cập nhật</span>}</div>
                                 </div>
                             </div>
 
@@ -201,25 +213,25 @@ export default function Profile() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
                                 <div>
                                     <label style={labelStyle}>Họ và tên:</label>
-                                    <input style={inputStyle} type="text" value={profile.fullname} onChange={e => setProfile({...profile, fullname: e.target.value})} placeholder="Nhập họ và tên..." />
+                                    <input style={inputStyle} type="text" value={profile?.fullname || ''} onChange={e => setProfile({...profile, fullname: e.target.value})} placeholder="Nhập họ và tên..." />
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Số điện thoại:</label>
-                                    <input style={inputStyle} type="tel" value={profile.phone} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Nhập số điện thoại..." />
+                                    <input style={inputStyle} type="tel" value={profile?.phone || ''} onChange={e => setProfile({...profile, phone: e.target.value})} placeholder="Nhập số điện thoại..." />
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Email:</label>
-                                    <input style={inputStyle} type="email" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} placeholder="Nhập địa chỉ email..." />
+                                    <input style={inputStyle} type="email" value={profile?.email || ''} onChange={e => setProfile({...profile, email: e.target.value})} placeholder="Nhập địa chỉ email..." />
                                 </div>
                                 <div>
                                     <label style={labelStyle}>Ảnh đại diện (URL):</label>
-                                    <input style={inputStyle} type="text" value={profile.avatar_url} onChange={e => setProfile({...profile, avatar_url: e.target.value})} placeholder="Nhập link ảnh (https://...)" />
+                                    <input style={inputStyle} type="text" value={profile?.avatar_url || ''} onChange={e => setProfile({...profile, avatar_url: e.target.value})} placeholder="Nhập link ảnh (https://...)" />
                                 </div>
                             </div>
 
                             <div>
                                 <label style={labelStyle}>Địa chỉ liên hệ:</label>
-                                <textarea style={{...inputStyle, resize: 'vertical'}} rows="2" value={profile.address} onChange={e => setProfile({...profile, address: e.target.value})} placeholder="Nhập địa chỉ chi tiết..."></textarea>
+                                <textarea style={{...inputStyle, resize: 'vertical'}} rows="2" value={profile?.address || ''} onChange={e => setProfile({...profile, address: e.target.value})} placeholder="Nhập địa chỉ chi tiết..."></textarea>
                             </div>
 
                             <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>

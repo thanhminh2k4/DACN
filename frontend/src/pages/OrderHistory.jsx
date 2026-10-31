@@ -1,4 +1,3 @@
-// Tệp: frontend/src/pages/OrderHistory.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -32,9 +31,13 @@ export default function OrderHistory() {
     const fetchMyOrders = async () => {
         try {
             const res = await api.get('/orders/my-orders');
-            setOrders(res.data.orders);
+            // ĐÃ FIX: Trích xuất mảng an toàn để không bị lỗi undefined
+            const rawData = res.data;
+            const ordersArray = Array.isArray(rawData) ? rawData : (rawData?.orders || rawData?.data || []);
+            setOrders(ordersArray);
         } catch (error) {
             console.error("Lỗi khi tải lịch sử", error);
+            setOrders([]); // Đảm bảo gán mảng rỗng nếu lỗi
         } finally {
             setLoading(false);
         }
@@ -43,8 +46,8 @@ export default function OrderHistory() {
     // Mở hộp thoại xác nhận Hủy / Chỉnh sửa
     const openConfirm = (type, order) => {
         const message = type === 'cancel' 
-            ? `Bạn có chắc chắn muốn hủy đơn hàng ${order.order_id} không?`
-            : `Bạn có muốn đưa các sản phẩm của đơn ${order.order_id} về lại giỏ hàng để chỉnh sửa không? (Đơn hiện tại sẽ bị hủy)`;
+            ? `Bạn có chắc chắn muốn hủy đơn hàng ${order?.order_id} không?`
+            : `Bạn có muốn đưa các sản phẩm của đơn ${order?.order_id} về lại giỏ hàng để chỉnh sửa không? (Đơn hiện tại sẽ bị hủy)`;
         setConfirmModal({ isOpen: true, type, order, message });
     };
 
@@ -53,6 +56,8 @@ export default function OrderHistory() {
         const { type, order } = confirmModal;
         setConfirmModal({ isOpen: false, type: '', order: null, message: '' });
         
+        if(!order || !order._id) return;
+
         try {
             if (type === 'cancel') {
                 await api.put(`/orders/cancel/${order._id}`);
@@ -63,9 +68,12 @@ export default function OrderHistory() {
             else if (type === 'edit') {
                 // 1. Hủy đơn hiện tại
                 await api.put(`/orders/cancel/${order._id}`);
-                // 2. Thêm lại từng món vào giỏ
-                for (const item of order.items) {
-                    await api.post('/cart/add', { product_id: item.product_id, quantity: item.quantity });
+                // 2. Thêm lại từng món vào giỏ (thêm optional chaining bảo vệ mảng items)
+                const safeItems = order?.items || [];
+                for (const item of safeItems) {
+                    if (item.product_id) {
+                        await api.post('/cart/add', { product_id: item.product_id, quantity: item.quantity || 1 });
+                    }
                 }
                 // 3. Bay thẳng qua giỏ hàng
                 navigate('/cart');
@@ -93,7 +101,7 @@ export default function OrderHistory() {
             setActionMessage({ type: 'error', text: 'Vui lòng chọn ít nhất 1 lý do!' });
             return;
         }
-        setActionMessage({ type: 'success', text: `Yêu cầu hoàn trả đơn ${returnOrder.order_id} đã được gửi!` });
+        setActionMessage({ type: 'success', text: `Yêu cầu hoàn trả đơn ${returnOrder?.order_id || ''} đã được gửi!` });
         setTimeout(() => { setReturnModalOpen(false); setReturnOrder(null); }, 3000);
     };
 
@@ -125,7 +133,7 @@ export default function OrderHistory() {
 
             {loading ? (
                 <p style={{ textAlign: 'center', padding: '50px' }}>Đang tải dữ liệu...</p>
-            ) : orders.length === 0 ? (
+            ) : orders?.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px', background: '#fff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
                     <div style={{ fontSize: '40px', marginBottom: '15px' }}>🛒</div>
                     <p style={{ color: '#555', fontSize: '16px' }}>Bạn chưa có đơn hàng nào.</p>
@@ -133,20 +141,21 @@ export default function OrderHistory() {
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {orders.map((order) => (
+                    {orders?.map((order) => (
                         <div key={order._id} style={{ border: '1px solid #eaeaea', borderRadius: '8px', background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                             <div style={{ padding: '15px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ color: '#555', fontSize: '14px' }}>
-                                    <span style={{ marginRight: '15px' }}>Mã Đơn: <strong style={{ color: '#333' }}>{order.order_id}</strong></span>
-                                    <span>Ngày đặt: {order.created_at}</span>
+                                    <span style={{ marginRight: '15px' }}>Mã Đơn: <strong style={{ color: '#333' }}>{order?.order_id || 'N/A'}</strong></span>
+                                    <span>Ngày đặt: {order?.created_at || 'N/A'}</span>
                                 </div>
-                                <span className={`order-status ${getStatusClass(order.status)}`} style={{ fontWeight: 'bold', padding: '5px 12px', borderRadius: '4px', fontSize: '13px' }}>
-                                    {order.status.toUpperCase()}
+                                <span className={`order-status ${getStatusClass(order?.status)}`} style={{ fontWeight: 'bold', padding: '5px 12px', borderRadius: '4px', fontSize: '13px' }}>
+                                    {order?.status?.toUpperCase() || 'KHÔNG RÕ'}
                                 </span>
                             </div>
 
                             <div style={{ padding: '20px' }}>
-                                {order.items.map((item, idx) => (
+                                {/* ĐÃ FIX: Thêm Optional Chaining để loop mảng items an toàn */}
+                                {order?.items?.map((item, idx) => (
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: idx !== order.items.length - 1 ? '15px' : '0' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                             {item.image_url ? (
@@ -155,12 +164,12 @@ export default function OrderHistory() {
                                                 <div style={{ width: '60px', height: '60px', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #eee' }}></div>
                                             )}
                                             <div>
-                                                <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>{item.product_name}</div>
-                                                <div style={{ color: '#777', fontSize: '13px' }}>x{item.quantity}</div>
+                                                <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>{item.product_name || 'Sản phẩm lỗi'}</div>
+                                                <div style={{ color: '#777', fontSize: '13px' }}>x{item.quantity || 1}</div>
                                             </div>
                                         </div>
                                         <div style={{ fontWeight: 'bold', color: '#555' }}>
-                                            {(item.price * item.quantity).toLocaleString()} đ
+                                            {((item.price || 0) * (item.quantity || 1)).toLocaleString()} đ
                                         </div>
                                     </div>
                                 ))}
@@ -168,37 +177,37 @@ export default function OrderHistory() {
 
                             <div style={{ padding: '15px 20px', borderTop: '1px solid #eaeaea', background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                    {order.discount_code && order.discount_percent > 0 && (
+                                    {order?.discount_code && order?.discount_percent > 0 && (
                                         <div style={{ fontSize: '13px', color: '#28a745', marginBottom: '4px' }}>
                                             ✓ Đã áp dụng mã: <strong>{order.discount_code} (-{order.discount_percent}%)</strong>
                                         </div>
                                     )}
                                     <div style={{ fontSize: '15px' }}>
-                                        Thành tiền: <strong style={{ color: '#d9534f', fontSize: '20px', marginLeft: '5px' }}>{order.total_amount.toLocaleString()} đ</strong>
+                                        Thành tiền: <strong style={{ color: '#d9534f', fontSize: '20px', marginLeft: '5px' }}>{order?.total_amount?.toLocaleString() || 0} đ</strong>
                                     </div>
                                 </div>
                                 
                                 <div style={{ display: 'flex', gap: '10px' }}>
-                                    {order.status === 'Hoàn thành' && (
+                                    {order?.status === 'Hoàn thành' && (
                                         <button onClick={() => handleOpenReturnModal(order)} style={{ padding: '8px 20px', background: '#ffc107', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
                                             Yêu cầu Hoàn trả
                                         </button>
                                     )}
                                     
-                                    {/* NÚT CHỈNH SỬA ĐƠN HÀNG MỚI THÊM */}
+                                    {/* NÚT CHỈNH SỬA ĐƠN HÀNG */}
                                     <button 
-                                        onClick={() => order.status === 'Chờ duyệt' && openConfirm('edit', order)}
-                                        disabled={order.status !== 'Chờ duyệt'}
-                                        style={{ padding: '8px 20px', background: order.status === 'Chờ duyệt' ? '#17a2b8' : '#f1f1f1', color: order.status === 'Chờ duyệt' ? '#fff' : '#a1a1a1', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: order.status === 'Chờ duyệt' ? 'pointer' : 'not-allowed', transition: '0.2s' }}
+                                        onClick={() => order?.status === 'Chờ duyệt' && openConfirm('edit', order)}
+                                        disabled={order?.status !== 'Chờ duyệt'}
+                                        style={{ padding: '8px 20px', background: order?.status === 'Chờ duyệt' ? '#17a2b8' : '#f1f1f1', color: order?.status === 'Chờ duyệt' ? '#fff' : '#a1a1a1', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: order?.status === 'Chờ duyệt' ? 'pointer' : 'not-allowed', transition: '0.2s' }}
                                     >
                                         Chỉnh sửa
                                     </button>
 
                                     {/* NÚT HỦY ĐƠN HÀNG */}
                                     <button 
-                                        onClick={() => order.status === 'Chờ duyệt' && openConfirm('cancel', order)}
-                                        disabled={order.status !== 'Chờ duyệt'}
-                                        style={{ padding: '8px 25px', background: order.status === 'Chờ duyệt' ? '#dc3545' : '#f1f1f1', color: order.status === 'Chờ duyệt' ? '#fff' : '#a1a1a1', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: order.status === 'Chờ duyệt' ? 'pointer' : 'not-allowed', transition: '0.2s' }}
+                                        onClick={() => order?.status === 'Chờ duyệt' && openConfirm('cancel', order)}
+                                        disabled={order?.status !== 'Chờ duyệt'}
+                                        style={{ padding: '8px 25px', background: order?.status === 'Chờ duyệt' ? '#dc3545' : '#f1f1f1', color: order?.status === 'Chờ duyệt' ? '#fff' : '#a1a1a1', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: order?.status === 'Chờ duyệt' ? 'pointer' : 'not-allowed', transition: '0.2s' }}
                                     >
                                         Hủy đơn
                                     </button>
@@ -231,7 +240,7 @@ export default function OrderHistory() {
             {isReturnModalOpen && returnOrder && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
                     <div style={{ background: '#fff', width: '500px', padding: '25px', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-                        <h3 style={{ margin: '0 0 15px 0', borderBottom: '2px solid #eee', paddingBottom: '10px', color: '#333' }}>Yêu cầu Hoàn trả - Đơn {returnOrder.order_id}</h3>
+                        <h3 style={{ margin: '0 0 15px 0', borderBottom: '2px solid #eee', paddingBottom: '10px', color: '#333' }}>Yêu cầu Hoàn trả - Đơn {returnOrder?.order_id || ''}</h3>
                         {actionMessage.text && (
                             <div style={{ padding: '10px 15px', marginBottom: '15px', borderRadius: '4px', fontSize: '14px', fontWeight: 'bold', background: actionMessage.type === 'error' ? '#f8d7da' : '#d4edda', color: actionMessage.type === 'error' ? '#721c24' : '#155724' }}>
                                 {actionMessage.text}
