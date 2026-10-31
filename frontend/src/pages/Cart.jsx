@@ -1,4 +1,3 @@
-// Tệp: frontend/src/pages/Cart.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -28,17 +27,32 @@ export default function Cart() {
 
     const fetchData = async () => {
         try {
+            // Lấy dữ liệu Giỏ hàng
             const cartRes = await api.get('/cart/');
-            setCartItems(cartRes.data.items);
-            setTotalPrice(cartRes.data.total_price);
+            // ĐÃ FIX: Trích xuất mảng an toàn để tránh lỗi undefined khi giỏ hàng trống
+            const rawCart = cartRes.data;
+            const itemsArray = Array.isArray(rawCart) ? rawCart : (rawCart?.items || rawCart?.data || []);
+            setCartItems(itemsArray);
+            
+            // Đảm bảo total_price luôn là số, nếu undefined thì gán bằng 0
+            setTotalPrice(rawCart?.total_price || 0);
 
+            // Lấy dữ liệu Đơn hàng
             const orderRes = await api.get('/orders/my-orders');
-            const processing = orderRes.data.orders.filter(
+            // ĐÃ FIX: Trích xuất mảng an toàn cho đơn hàng
+            const rawOrders = orderRes.data;
+            const ordersArray = Array.isArray(rawOrders) ? rawOrders : (rawOrders?.orders || rawOrders?.data || []);
+            
+            const processing = ordersArray.filter(
                 o => o.status === 'Chờ duyệt' || o.status === 'Đang giao'
             );
             setProcessingOrders(processing);
+            
         } catch (error) {
             console.error("Lỗi lấy dữ liệu", error);
+            // Nếu lỗi, đảm bảo state là mảng rỗng để không bị sập UI
+            setCartItems([]);
+            setProcessingOrders([]);
         } finally {
             setLoading(false);
         }
@@ -98,7 +112,8 @@ export default function Cart() {
                 <div style={{ flex: 7, background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
                     <h3 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>Giỏ hàng của bạn</h3>
                     
-                    {cartItems.length === 0 ? (
+                    {/* ĐÃ FIX: Thêm Optional Chaining (?) để an toàn khi kiểm tra length */}
+                    {cartItems?.length === 0 ? (
                         <p style={{ marginTop: '20px', color: '#666' }}>Giỏ hàng trống.</p>
                     ) : (
                         <>
@@ -113,7 +128,7 @@ export default function Cart() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {cartItems.map((item) => (
+                                    {cartItems?.map((item) => (
                                         <tr key={item.product_id}>
                                             <td 
                                                 style={{ display: 'flex', alignItems: 'center', gap: '15px', cursor: 'pointer' }}
@@ -126,7 +141,8 @@ export default function Cart() {
                                                 )}
                                                 <span style={{ color: '#0275d8', fontWeight: 'bold' }}>{item.name}</span>
                                             </td>
-                                            <td>{item.price.toLocaleString()} đ</td>
+                                            {/* ĐÃ FIX: Bảo vệ gọi hàm toLocaleString phòng khi price là undefined */}
+                                            <td>{item?.price?.toLocaleString() || 0} đ</td>
                                             
                                             {/* KHU VỰC TĂNG GIẢM SỐ LƯỢNG MỚI */}
                                             <td>
@@ -143,7 +159,8 @@ export default function Cart() {
                                                 </div>
                                             </td>
                                             
-                                            <td><strong style={{color: '#d9534f'}}>{item.subtotal.toLocaleString()} đ</strong></td>
+                                            {/* ĐÃ FIX: Bảo vệ gọi hàm toLocaleString phòng khi subtotal là undefined */}
+                                            <td><strong style={{color: '#d9534f'}}>{item?.subtotal?.toLocaleString() || 0} đ</strong></td>
                                             <td>
                                                 <button className="btn-remove-item" onClick={(e) => { e.stopPropagation(); handleRemoveItem(item.product_id); }}>
                                                     Xóa
@@ -197,17 +214,19 @@ export default function Cart() {
                 </div>
 
                 <div style={{ flex: 3, background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', height: 'fit-content' }}>
-                    <h3 style={{ borderBottom: '2px solid #ddd', paddingBottom: '10px', color: '#d9534f' }}>Đang xử lý ({processingOrders.length})</h3>
-                    {processingOrders.length === 0 ? (
+                    {/* ĐÃ FIX: Thêm Optional Chaining (?) để an toàn khi kiểm tra length */}
+                    <h3 style={{ borderBottom: '2px solid #ddd', paddingBottom: '10px', color: '#d9534f' }}>Đang xử lý ({processingOrders?.length || 0})</h3>
+                    {processingOrders?.length === 0 ? (
                         <p style={{ fontSize: '14px', color: '#777', marginTop: '15px' }}>Không có đơn hàng nào đang giao.</p>
                     ) : (
                         <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            {processingOrders.map(order => (
+                            {processingOrders?.map(order => (
                                 <div key={order._id} style={{ background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ddd' }}>
                                     <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Mã Đơn: {order.order_id}</div>
                                     <div style={{ fontSize: '13px', color: '#555', marginBottom: '8px' }}>{order.created_at}</div>
                                     <div style={{ color: '#0275d8', fontWeight: 'bold', fontSize: '14px' }}>Trạng thái: {order.status}</div>
-                                    <div style={{ marginTop: '10px', fontSize: '15px', fontWeight: 'bold', color: '#d9534f' }}>{order.total_amount.toLocaleString()} đ</div>
+                                    {/* ĐÃ FIX: Bảo vệ gọi hàm toLocaleString phòng khi total_amount là undefined */}
+                                    <div style={{ marginTop: '10px', fontSize: '15px', fontWeight: 'bold', color: '#d9534f' }}>{order?.total_amount?.toLocaleString() || 0} đ</div>
                                 </div>
                             ))}
                         </div>
