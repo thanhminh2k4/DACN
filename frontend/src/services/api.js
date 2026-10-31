@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'https://studyholic-api.onrender.com/api',
+    baseURL: '[https://studyhoclic-api.onrender.com/api](https://studyhoclic-api.onrender.com/api)'
 });
 
 api.interceptors.request.use(
